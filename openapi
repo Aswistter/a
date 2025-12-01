@@ -1,0 +1,700 @@
+openapi: 3.0.3
+info:
+  title: Optima Bonus API 2
+servers:
+  - url: https://bonus.init-plus.com/api/v2
+    description: Оптима.Бонус для разработки 
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+  responses:
+    UnauthorizedError:
+      description: Ошибка авторизации
+    SomeError:
+      description: Произошла ошибка. Подробности в теле ответа.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Message: { type: string }
+    BonusProgramError:
+      description: Не настроена бонусная программа
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              Message: { type: string }
+security:
+  - basicAuth: []
+
+paths:
+  /ping:
+      get:
+        summary: Проверка доступности сервера
+        responses:
+          "200":
+            description: Сервер доступен
+            content: 
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    Status:
+                      type: string
+                      example: Ok
+          "401":
+            $ref: '#/components/responses/UnauthorizedError'
+
+  /registration:
+    post:
+      summary: Регистрация личного кабинета и выпуск бонусной карты
+      parameters:
+        - name: Client
+          description: Имя
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Phone
+          description: Телефон
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Email
+          description: Электронная почта
+          in: query
+          required: true
+          schema: { type: string }
+        - name: ClientDateOfBirth
+          description: Дата рождения
+          in: query
+          required: true
+          schema: { type: string, format: date }
+        - name: ClientCardTypeUID
+          description: Идентификатор типа карты
+          in: query
+          required: true
+          schema: { type: string, format: uuid }
+        - name: DeviceId
+          description: Уникальный идентификатор устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: HuaweiToken
+          description: Токен Huawei
+          in: query
+          required: false
+          schema: { type: string }
+        - name: FireBaseToken
+          description: Токен FireBase
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Результат регистрации
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      Result: { type: boolean }
+                      ExistingCard: { type: boolean }
+                      DeviceToken: { type: string, format: uuid }
+                      TokenValid: { type: string, format: date-time }
+                      Message: { type: string }
+                  - type: object
+                    properties:
+                      ExistingCard: { type: boolean }
+                      Message: { type: string }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "500":
+          description: Не удалось выдать карту клиенту
+
+  /authorization:
+    post:
+      summary: Авторизация существующего пользователя на конкретном устройстве
+      parameters:
+        - name: Phone
+          description: Телефон в формате
+          in: query
+          required: true
+          schema: { type: string }
+        - name: DeviceId
+          description: Уникальный идентификатор устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: HuaweiToken
+          description: Токен Huawei
+          in: query
+          required: false
+          schema: { type: string }
+        - name: FireBaseToken
+          description: Токен FireBase 
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Успешная авторизация
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Message: { type: string }
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          description: Карта не найдена, пользователь не зарегистрирован
+
+  /logout:
+    post:
+      summary: Выход из аккаунта
+      parameters:
+        - name: DeviceToken
+          description: Токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: DeviceId
+          description: Уникальный идентификатор устройства.
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Успешный выход из приложения, токен устройства удален.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Message: { type: string }
+        "401":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          description: Не удалось выйти из приложения.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Message: { type: string }
+  
+  /editcard:
+    post:
+      summary: Изменение данных карты
+      parameters:
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Phone
+          description: Телефон
+          in: query
+          required: false
+          schema: { type: string }
+        - name: Email
+          description: Электронная почта
+          in: query
+          required: false
+          schema: { type: string }
+        - name: Client
+          description: Имя
+          in: query
+          required: false
+          schema: { type: string }
+        - name: DateOfBirth
+          description: Дата рождения
+          in: query
+          required: false
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: Описание того, что операция прошла успешно и требуется подтвердить изменение кодом
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Message: { type: string }
+        "401":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          description: Не удалось внести изменения
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  Message: { type: string }
+  
+  /confirm:
+    post:
+      summary: Подтверждение операции кодом, который выслан в телеграмм или на почту.
+      parameters:
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: ConfirmCode
+          description: Код подтверждения
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Method
+          description: Метод, который надо выполнить при удачном подтверждении
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Результат регистрации/авторизации/изменения реквизитов карты
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - type: object
+                    properties:
+                      Error: { type: boolean }
+                      ErrorMessage: { type: string }
+                      Version: { type: string }
+                      BonusCount: { type: integer }
+                      BonusRate: { type: number }
+                      BonusCurrency: { type: string }
+                      PaymentPercent: { type: integer }
+                      ExistingCard: { type: boolean }
+                      CardRef: { type: string, format: uuid }
+                      CardID: { type: string, format: uuid }
+                      CardIDValid: { type: string, format: date-time }
+                      Barcode: { type: string }
+                      Client: { type: string }
+                      PhoneNumber: { type: string }
+                      Email: { type: string }
+                      DateOfBirth: { type: string, format: date-time }
+                      DeviceToken: { type: string, format: uuid }
+                      TokenValid: { type: string, format: date-time }
+                  - type: object
+                    properties:
+                      Error: { type: boolean }
+                      Message: { type: string }
+        
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "403":
+          description: Неверный код подтверждения.
+  
+  /newcode:
+      post:
+        summary: Генерация нового кода подтверждения
+        parameters:
+          - name: DeviceToken
+            description: Уникальный токен устройства
+            in: query
+            required: true
+            schema: { type: string }
+        responses:
+          "200":
+            description: Код успешно сгенерирован и отправлен
+            content:
+              application/json:
+                schema:
+                  type: object
+                  properties:
+                    Message: { type: string }
+                    DeviceToken: { type: string, format: uuid }
+                    TokenValid: { type: string, format: date-time }
+          
+          "401":
+            $ref: '#/components/responses/UnauthorizedError'
+          "403":
+            description: Не удалось сгенерировать новый код
+  
+  /checktoken:
+    get:
+      summary: Получение информации о валидности и времени жизни токена
+      parameters:
+          - name: DeviceToken
+            description: Уникальный токен устройства
+            in: query
+            required: true
+            schema: { type: string }
+      responses:
+        "200":
+          description: Получена информация о текущем токене
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  TokenAllive: { type: boolean }
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "402":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          $ref: '#/components/responses/BonusProgramError'
+  
+  /getcardtypes:
+    get:
+      summary: Получение информации о бонусной программе
+      parameters:
+          - name: DeviceToken
+            description: Уникальный токен устройства
+            in: query
+            required: true
+            schema: { type: string }
+      responses:
+        "200":
+          description: Условия бонусной программы
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  CardTypeID: { type: string }
+                  CardTypeDescription: { type: string }
+                  IsPerson: { type: boolean }
+                  GenerateNumer: { type: boolean }
+                  Details:
+                    type: object
+                    properties:
+                      Guid: { type: string }
+                      Name: { type: string }
+                      PaymentPercent: { type: integer }
+                      BonusRate: { type: number }
+                      Conditions:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            ConditionName: { type: string }
+                            ValueDiscount: { type: number }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "402":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          $ref: '#/components/responses/BonusProgramError'
+          
+  /getazs:
+    get:
+      summary: Получение данных об АЗС
+      parameters:
+        - name: azsref
+          in: query
+          description: Идентификатор конкретной АЗС
+          required: false
+          schema: { type: string }
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Данные АЗС
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  AZS:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        AZSRef: { type: string }
+                        Name: { type: string }
+                        Azsnumber: { type: integer }
+                        Address: { type: string }
+                        Latitude: { type: number }
+                        Longitude: { type: number }
+                        PhoneNumber: { type: string }
+                        Services:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name: { type: string }
+                              value: { type: boolean }
+                        Fuels:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name: { type: string }
+                              value: { type: boolean }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "402":
+          $ref: '#/components/responses/SomeError'        
+  
+  /getcards:
+    get:
+      summary: Получение карт клиента
+      parameters:
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список карт
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    CardRef: { type: string }
+                    CardOwnerRef: { type: string }
+                    Client: { type: string }
+                    PhoneNumber: { type: string }
+                    Email: { type: string }
+                    DateOfBirth: { type: string, format: date-time }
+                    CardID: { type: string }
+                    CardIDValid: { type: string, format: date-time }
+                    Barcode: { type: string }
+                    BonusCount: { type: string }
+                    DeviceToken: { type: string, format: uuid }
+                    TokenValid: { type: string, format: date-time }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "402":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          $ref: '#/components/responses/BonusProgramError'
+          
+  /gethistory:
+    get:
+      summary: Получение истории продаж
+      parameters:
+        - name: DeviceToken
+          description: Уникальный идентификатор устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: dates
+          description: Дата начала отчета
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+        - name: datef
+          description: Дата конца отчета
+          in: query
+          required: true
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: История операций
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  ClientHistory:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Date: { type: string }
+                        History:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              Date: { type: string }
+                              Operation: { type: string }
+                              OperationDescription: { type: string }
+                              BonusAccrued: { type: integer }
+                              BonusWrittenOff: { type: integer }
+                              BonusTurnover: { type: integer }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+        "402":
+          $ref: '#/components/responses/SomeError'
+        "403":
+          $ref: '#/components/responses/BonusProgramError'
+  
+  /getgoods:
+    get:
+      summary: Получение списка товаров
+      parameters:
+          - name: DeviceToken
+            description: Уникальный токен устройства
+            in: query
+            required: true
+            schema: { type: string }
+      responses:
+        "200":
+          description: Товары
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  MaxPageNumber: { type: integer }
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  Products:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        Group: { type: boolean }
+                        Name: { type: string }
+                        Measure: { type: string }
+                        Price: { type: integer }
+                        File: 
+                          type: object
+                          properties:
+                            FileName: { type: string }
+                            FileRef: { type: string }
+                            Size: { type: integer }
+                            CreateDate: { type: string }
+                            Extension: { type: string }
+                            Sha256: { type: string }
+                        PageNumber: { type: integer }
+                        PagePosition: { type: integer }
+                        Position: { type: integer }
+
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+  
+  /getimagesdescription:
+    get:
+      summary: Получение списка картинок товаров
+      parameters:
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+        - name: ProductRef
+          description: Уникальная ссылка на товар
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Список картинок
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  ImgDescriptions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        ProductRef: { type: string }
+                        FileRef: { type: string }
+                        FileName: { type: string }
+                        CreateDate: { type: string, format: date-time }
+                        Size: { type: integer }
+                        Extension: { type: string }
+                        Sha256: { type: string }
+
+  /getimage:
+    get:
+      summary: Получение картинки по ссылке
+      parameters:
+        - name: FileRef
+          description: Уникальная ссылка на файл
+          in: query
+          required: true
+          schema: { type: string }
+        - name: Promotion
+          description: При истине будет искать картинку среди документов акции
+          in: query
+          required: true
+          schema: { type: boolean }
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Картинка
+          content:
+            image/*:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Не удалось пролучить картинку
+
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /getpromotions:
+    get:
+      summary: Получение акций
+      parameters:
+        - name: DeviceToken
+          description: Уникальный токен устройства
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Акции
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  DeviceToken: { type: string, format: uuid }
+                  TokenValid: { type: string, format: date-time }
+                  Promotions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        PromotionRef: { type: string }
+                        AZSRef:
+                          type: array
+                          items: { type: string }
+                        DataS: { type: string, format: date-time }
+                        DataF: { type: string, format: date-time }
+                        TitlePromotion: { type: string }
+                        TextPromotion: { type: string }
+                        File: 
+                          type: object
+                          properties:
+                            FileName: { type: string }
+                            FileRef: { type: string }
+                            Size: { type: integer }
+                            Sha256: { type: string }
+        "401":
+          $ref: '#/components/responses/UnauthorizedError'
+
+
+
