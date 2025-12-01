@@ -1,6 +1,7 @@
 openapi: 3.0.3
 info:
   title: Optima Bonus API 2
+  version: "2.2.3"
 servers:
   - url: https://bonus.init-plus.com/api/v2
     description: Оптима.Бонус для разработки 
